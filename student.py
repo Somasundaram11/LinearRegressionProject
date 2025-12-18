@@ -1,38 +1,30 @@
-import pandas as pd
-import numpy as np
+import streamlit as st
 import pickle
+import numpy as np
 import os
 
-from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import StandardScaler
-from sklearn.impute import SimpleImputer
+st.set_page_config(page_title="Student Score Predictor")
 
-# Load dataset safely
+st.title("🎓 Student Final Score Prediction")
+st.write("Predict final exam score based on study behavior")
+
+# Load model safely
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-csv_path = os.path.join(BASE_DIR, "student_exam_score_dataset.csv")
+model_path = os.path.join(BASE_DIR, "model.pkl")
 
-df = pd.read_csv(csv_path)
+with open(model_path, "rb") as f:
+    model, scaler, imputer = pickle.load(f)
 
-print(df.columns)  # run once, then you can remove
+# User inputs
+hours = st.number_input("📘 Hours Studied", min_value=0.0, max_value=24.0)
+attendance = st.number_input("📊 Attendance (%)", min_value=0.0, max_value=100.0)
+previous = st.number_input("📝 Previous Score", min_value=0.0, max_value=100.0)
 
-# Features & target (safe way)
-X = df.iloc[:, :-1]
-y = df.iloc[:, -1]
+# Prediction
+if st.button("Predict Final Score"):
+    X = np.array([[hours, attendance, previous]])
+    X = imputer.transform(X)
+    X = scaler.transform(X)
 
-# Handle missing values
-imputer = SimpleImputer(strategy='mean')
-X = imputer.fit_transform(X)
-
-# Scaling
-scaler = StandardScaler()
-X = scaler.fit_transform(X)
-
-# Train model
-model = LinearRegression()
-model.fit(X, y)
-
-# Save model
-with open("model.pkl", "wb") as f:
-    pickle.dump((model, scaler, imputer), f)
-
-print("Model trained and saved as model.pkl")
+    prediction = model.predict(X)
+    st.success(f"✅ Predicted Final Score: {prediction[0]:.2f}")
