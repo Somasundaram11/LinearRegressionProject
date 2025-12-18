@@ -1,67 +1,38 @@
-import streamlit as st
 import pandas as pd
 import numpy as np
+import pickle
+import os
+
 from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import r2_score, mean_absolute_error
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
 
+# Load dataset safely
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+csv_path = os.path.join(BASE_DIR, "student_exam_score_dataset.csv")
 
-st.set_page_config(page_title="Student Score Predictor", layout="centered")
+df = pd.read_csv(csv_path)
 
-st.title("📘 Student Exam Score Prediction")
-st.write("Predict final exam score using Linear Regression")
+print(df.columns)  # run once, then you can remove
 
+# Features & target (safe way)
+X = df.iloc[:, :-1]
+y = df.iloc[:, -1]
 
-@st.cache_data
-def load_data():
-    return pd.read_csv("student_exam_score_dataset.csv")
+# Handle missing values
+imputer = SimpleImputer(strategy='mean')
+X = imputer.fit_transform(X)
 
-data = load_data()
+# Scaling
+scaler = StandardScaler()
+X = scaler.fit_transform(X)
 
-
-with st.expander("View Dataset"):
-    st.dataframe(data)
-
-X = data[['hours_studied', 'attendance_percent', 'previous_score']]
-y = data['final_score']
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
-
+# Train model
 model = LinearRegression()
-model.fit(X_train, y_train)
+model.fit(X, y)
 
-st.sidebar.header("Enter Student Details")
+# Save model
+with open("model.pkl", "wb") as f:
+    pickle.dump((model, scaler, imputer), f)
 
-hours = st.sidebar.slider("Hours Studied per Day", 0, 12, 5)
-attendance = st.sidebar.slider("Attendance Percentage", 50, 100, 75)
-previous_score = st.sidebar.slider("Previous Exam Score", 0, 100, 60)
-
-input_data = pd.DataFrame({
-    'hours_studied': [hours],
-    'attendance_percent': [attendance],
-    'previous_score': [previous_score]
-})
-
-prediction = model.predict(input_data)[0]
-
-st.subheader("Predicted Final Score")
-st.success(f"{prediction:.2f}")
-
-y_pred = model.predict(X_test)
-
-mae = mean_absolute_error(y_test, y_pred)
-r2 = r2_score(y_test, y_pred)
-
-st.subheader("Model Performance")
-st.write(f"**MAE:** {mae:.2f}")
-st.write(f"**R² Score:** {r2:.2f}")
-
-with st.expander("How this works"):
-    st.write("""
-    - This app uses **Multiple Linear Regression**
-    - Inputs: Study Hours, Attendance, Previous Score
-    - Output: Predicted Final Exam Score
-    - Model evaluated using **MAE** and **R² Score**
-    """)
+print("Model trained and saved as model.pkl")
